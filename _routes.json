@@ -1,5 +1,7 @@
 {
   "version": 1,
-  "include": ["/*"],
-  "exclude": []
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
 }
