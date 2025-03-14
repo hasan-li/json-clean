@@ -5,15 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Toggle } from '@/components/ui/toggle';
-import { X, ListOrdered, Sun, Moon, Copy, CheckCheck, Code, ListTree } from 'lucide-react';
+import { X, ListOrdered, Sun, Moon, Copy, CheckCheck, Code, ListTree, SortAsc, SortDesc } from 'lucide-react';
 
 import { JsonTreeView } from '@/JsonTreeView'
 
-// type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
-// interface JsonObject { [key: string]: JsonValue }
-// type JsonArray = Array<JsonValue>
-
 const JsonFormatter: React.FC = () => {
+  const INDENT_SIZE = 2;
+
   const [inputJson, setInputJson] = useState<string>('');
   const [outputJson, setOutputJson] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -21,25 +19,42 @@ const JsonFormatter: React.FC = () => {
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<string>('formatted');
+  const [sortKeys, setSortKeys] = useState<boolean>(false);
+  const [parsedJson, setParsedJson] = useState<unknown>(null);
 
-  const INDENT_SIZE = 2;
+  const sortJsonKeys = (obj: unknown): unknown => {
+    if (obj === null || typeof obj !== 'object') {
+      return obj;
+    }
 
-  useEffect(() => {
-    formatJson();
-  }, [inputJson]);
+    if (Array.isArray(obj)) {
+      return obj.map((item) => sortJsonKeys(item));
+    }
+
+    const objRecord = obj as Record<string, unknown>;
+
+    return Object.keys(objRecord)
+      .sort()
+      .reduce<Record<string, unknown>>((sorted, key) => {
+        sorted[key] = sortJsonKeys(objRecord[key]);
+        return sorted;
+      }, {});
+  };
 
   const formatJson = (): void => {
     if (!inputJson.trim()) {
       setOutputJson('');
       setError('');
+      setParsedJson(null);
       return;
     }
 
     try {
-      const parsedJson = JSON.parse(inputJson);
-      const formattedJson = JSON.stringify(parsedJson, null, INDENT_SIZE);
+      const parsed = JSON.parse(inputJson);
+      setParsedJson(parsed);
 
-      setOutputJson(formattedJson);
+      const processedJson = sortKeys ? sortJsonKeys(parsed) : parsed;
+      setOutputJson(JSON.stringify(processedJson, null, INDENT_SIZE));
       setError('');
     } catch (err) {
       if (err instanceof Error) {
@@ -48,8 +63,24 @@ const JsonFormatter: React.FC = () => {
         setError('Invalid JSON: Unknown error');
       }
       setOutputJson('');
+      setParsedJson(null);
     }
   };
+
+  const toggleSorting = (): void => {
+    const newSortingState = !sortKeys;
+    setSortKeys(newSortingState);
+
+    if (parsedJson) {
+      const processedJson = newSortingState ? sortJsonKeys(parsedJson) : parsedJson;
+      setOutputJson(JSON.stringify(processedJson, null, INDENT_SIZE));
+    }
+  };
+
+  useEffect(() => {
+    formatJson();
+  }, [inputJson]);
+
 
   const handleCopy = (): void => {
     navigator.clipboard.writeText(outputJson);
@@ -148,6 +179,16 @@ const JsonFormatter: React.FC = () => {
                       className="h-7 w-7 mr-2"
                     >
                       <ListOrdered size={14}/>
+                    </Toggle>
+
+                    <Toggle
+                      variant={sortKeys ? "default" : "outline"}
+                      aria-label="Sort keys alphabetically"
+                      pressed={sortKeys}
+                      onClick={toggleSorting}
+                      className="h-7 w-7 mr-2"
+                    >
+                      {sortKeys ? <SortDesc size={14}/> : <SortAsc size={14}/>}
                     </Toggle>
 
                     <Button
